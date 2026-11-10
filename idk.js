@@ -7,6 +7,7 @@ class TP {
 		this.id = id;
 		this.tooltip = document.createElement("div");
 		this.#addStyles();
+		this.#makeDraggable();
 	}
 	addFolder(title, cb = null) {
 		const folder = this.pane.addFolder({
@@ -60,7 +61,7 @@ class TP {
 		// console.log(stored, tp[key])
 
 		if (!(propertyName in tp[key])) tp[key][propertyName] = value ?? options?.value;
-        if (typeof index === "number") options.index = index;
+		if (typeof index === "number") options.index = index;
 
 		let input;
 		if (isButton) input = target.addButton(options);
@@ -99,47 +100,59 @@ class TP {
 
 		if (!(propertyName in tp[key])) tp[key][propertyName] = value;
 
-        const btn = target.addButton({title: tp[key][propertyName].toUpperCase() ?? "Set Bind", label});
+		const btn = target.addButton({
+			title: tp[key][propertyName].toUpperCase() ?? "Set Bind",
+			label,
+		});
 
-        let listening = false;
+		let listening = false;
 
-        /**
-         * 
-         * @param {KeyboardEvent} event 
-         * @returns 
-         */
-        const handler = (event) => {
-            event.preventDefault();
-            event.stopPropagation();
+		/**
+		 *
+		 * @param {KeyboardEvent} event
+		 * @returns
+		 */
+		const handler = (event) => {
+			event.preventDefault();
+			event.stopPropagation();
 
-            const key2 = event.key.toLocaleLowerCase();
-            if (key2 === "escape") {
-                listening = false;
-                btn.title = tp[key][propertyName].toUpperCase() ?? "Set Bind";
-                document.removeEventListener("keydown", handler);
-                return;
-            }
-            tp[key][propertyName] = key2;
-            btn.title = key2.toUpperCase();
-            listening = false;
-            localStorage.setItem(`${this.id}${this.capitalise(folderName)}`, JSON.stringify(tp[key]));
-            document.removeEventListener("keydown", handler);
-        }
+			const key2 = event.key.toLocaleLowerCase();
+			if (key2 === "escape") {
+				listening = false;
+				btn.title = tp[key][propertyName].toUpperCase() ?? "Set Bind";
+				document.removeEventListener("keydown", handler);
+				return;
+			}
+			tp[key][propertyName] = key2;
+			btn.title = key2.toUpperCase();
+			listening = false;
+			localStorage.setItem(
+				`${this.id}${this.capitalise(folderName)}`,
+				JSON.stringify(tp[key]),
+			);
+			document.removeEventListener("keydown", handler);
+		};
 
-        btn.on("click", function () {
-            if (listening) return;
-            listening = true;
-            btn.title = "Press a button...";
-            document.addEventListener("keydown", handler);
-        });
+		btn.on("click", function () {
+			if (listening) return;
+			listening = true;
+			btn.title = "Press a button...";
+			document.addEventListener("keydown", handler);
+		});
 
-        return btn;
+		return btn;
 	}
 
 	removeInput(folderName, inputIdx) {
 		const folder = this.getFolder(folderName);
 		if (!folder) return;
 		folder.children[inputIdx]?.dispose();
+	}
+
+	refreshFolder(folderName) {
+		const f = this.getFolder(folderName);
+		if (!f) return;
+		f.refresh();
 	}
 	/**
 	 *
@@ -177,13 +190,45 @@ class TP {
 		});
 
 		document.body.appendChild(this.tooltip);
+		this.container.style.zIndex = 1000;
 	}
 
-    refreshFolder(folderName) {
-        const f = this.getFolder(folderName);
-        if (!f) return;
-        f.refresh();
-    }
+	#makeDraggable() {
+		let self = this;
+		let element = this.container;
+		let notMenu;
+		if (element) {
+			let offsetX, offsetY;
+			element.addEventListener("mousedown", function (e) {
+				const dragElement = function (e) {
+					const x = ((e.clientX - offsetX) / window.innerWidth) * 100;
+					const y = ((e.clientY - offsetY) / window.innerHeight) * 100;
+					const maxX = 100 - (element.offsetWidth / window.innerWidth) * 100;
+					const maxY = 100 - (element.offsetHeight / window.innerHeight) * 100;
+					element.style.left = `${Math.max(0, Math.min(x, maxX))}%`;
+					element.style.top = `${Math.max(0, Math.min(y, maxY))}%`;
+
+					localStorage.setItem(
+						`${self.id}Pos`,
+						JSON.stringify({
+							x: Math.max(0, Math.min(x, maxX)),
+							y: Math.max(0, Math.min(y, maxY)),
+						}),
+					);
+				};
+
+				if (notMenu || e.target.classList.contains("tp-rotv_t")) {
+					offsetX = e.clientX - element.getBoundingClientRect().left;
+					offsetY = e.clientY - element.getBoundingClientRect().top;
+					document.addEventListener("mousemove", dragElement);
+					document.addEventListener("mouseup", function () {
+						document.removeEventListener("mousemove", dragElement);
+					});
+					e.preventDefault(); // Prevent text selection during drag
+				}
+			});
+		}
+	}
 
 	get container() {
 		return this.pane.containerElem_;
