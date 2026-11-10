@@ -18,7 +18,7 @@ class TP {
 		this.folders.set(title.toLocaleLowerCase(), folder);
 	}
 	getFolder(title) {
-		return this.folders.get(title);
+		return this.folders.get(title.toLocaleLowerCase());
 	}
 	disposeFolder(folderName) {
 		const folder = this.getFolder(folderName);
@@ -143,10 +143,15 @@ class TP {
 		return btn;
 	}
 
-	removeInput(folderName, inputIdx) {
+	removeInput({folderName, inputIdx, all = false}) {
 		const folder = this.getFolder(folderName);
 		if (!folder) return;
-		folder.children[inputIdx]?.dispose();
+		if (!all) folder.children[inputIdx]?.dispose();
+		else {
+			for (const child of folder.children) {
+				child?.dispose();
+			}
+		}
 	}
 
 	refreshFolder(folderName) {
